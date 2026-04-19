@@ -1,2 +1,14 @@
-# Ignore build files
-/build
+# Các file tạm và file thực thi sau khi build
+/build/
+
+# File cấu hình do hệ thống tự sinh ra khi bạn chạy menuconfig
+# Lưu ý: sdkconfig nên được giữ lại nếu bạn muốn cố định cấu hình dự án,
+# nhưng sdkconfig.old thì nên bỏ qua.
+sdkconfig.old
+
+# Các file tạm của VS Code
+.vscode/
+# (Trừ khi bạn muốn chia sẻ các settings đặc thù cho team)
+
+# Các file log
+*.log
