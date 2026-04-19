@@ -1,2 +1,0 @@
-source D:/ESP32/blink/build/bootloader/gdbinit/symbols
-source D:/ESP32/blink/build/bootloader/gdbinit/connect

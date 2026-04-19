@@ -28,7 +28,8 @@ void led_task_1(void *pvParameters) {
 // Task 2: Nháy LED 2 mỗi 1000ms (chạy chậm hơn task 1)
 void led_task_2(void *pvParameters) {
     gpio_reset_pin(LED_2_IO);
-    gpio_set_direction(LED_2_IO, GPIO_MODE_OUTPUT);
+    gpio_set_direction(LED_2_IO, GPIO_MODE_OUTPUT)
+    ;
 
     while(1) {
         gpio_set_level(LED_2_IO, 1);
