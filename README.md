@@ -57,113 +57,129 @@
 ## [🧠 Kiến Trúc Hệ Thống](#-kiến-trúc-hệ-thống)
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                    APPLICATION LAYER                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │ System Apps  │  │  User Apps   │  │   Examples   │       │
-│  │ - Sys Monitor│  │ - 3D Cube    │  │ - Touch Test │       │
-│  │   (FPS/Heap) │  │   Interact   │  │ - Wireframe  │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ Uses Core Engine API & Queues
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│                    3D CORE ENGINE & RTOS                    │
+│                      APPLICATION LAYER                      │
+│                    (Luồng điều khiển chính)                 │
+│  ┌──────────────┐  ┌────────────────────────────────┐       │
+│  │ App_3D_Cube  │  │App_Touch_Cal       Sys_Monitor │       │
+│  │   (main.c)   │  │(Hiệu chỉnh) (Tests) (FPS/Heap) │       │
+│  └──────────────┘  └────────────────────────────────┘       │
 │  ┌──────────────────────────────────────────────────┐       │
-│  │  FreeRTOS Task Management                        │       │
-│  │  - Task_Display (High Priority)                  │       │
-│  │  - Task_Math3D  (Medium Priority)                │       │
-│  │  - Task_Touch   (Low Priority)                   │       │
+│  │             FreeRTOS Task Management             │       │
+│  │  - Task_Display (Đẩy Framebuffer ra màn hình)    │       │
+│  │  - Task_Math3D  (Tính toán tọa độ, xoay góc)     │       │
+│  │  - Task_Touch   (Đọc chạm, đẩy data vào Queue)   │       │
 │  └──────────────────────────────────────────────────┘       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │   3D Math    │  │Graphics Rndr │  │ Event/Queue  │       │
-│  │(Matrix/Proj) │  │(Line/Buffer) │  │(Touch Data)  │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
 └─────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ Uses HAL Interface (Hardware Agnostic)
-                            │
+       │ (Giải thuật phần mềm)                 │ (Chương trình điều kiển phần cứng)
+       ▼                                       ▼
+┌───────────────────────────┐   ┌─────────────────────────────┐
+│3D CORE ENGINE (MIDDLEWARE)│   │  UNIFIED DRIVERS (NGOẠI VI) │
+│ (Chỉ xử lý số liệu ở RAM) │   │  (Độc lập hoàn toàn chip)   │
+│┌────────────┐┌───────────┐│   │┌────────────┐┌─────────────┐│
+││  3D Math   ││Rasterizer ││   ││  ILI9341   ││   XPT2046   ││
+││(Matrix/Vec)││(Wireframe)││   ││(TFT Render)││(Đọc tọa độ) ││
+│└────────────┘└───────────┘│   │└────────────┘└─────────────┘│
+└───────────────────────────┘   └─────────────────────────────┘
+                                              │ (Gọi Giao diện ảo)
+                                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              HARDWARE ABSTRACTION LAYER (HAL)               │
-│  ┌──────────────────────────────────────────────────┐       │
-│  │  Hardware Interfaces                             │       │
-│  │  - IDisplay (PushFrame, DrawPixel, SetWindow)    │       │
-│  │  - ITouch   (GetCoordinates, isTouched)          │       │
-│  │  - ISystem  (GetTicks, Delay)                    │       │
-│  └──────────────────────────────────────────────────┘       │
+│            FRONTEND APIs (HAL V-TABLE INTERFACES)           │
+│           (Lớp layer chung để điều khiển ngoại vi)          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │   ILI9341    │  │   XPT2046    │  │   (Future)   │       │
-│  │ (SPI & DMA)  │  │  (SPI / I2C) │  │ ST7789/FT... │       │
+│  │  hal_spi.h   │  │  hal_i2c.h   │  │ hal_gpio.h   │       │
+│  │(transmit_cmd)│  │ (read/write) │  │ (set_level)  │       │
 │  └──────────────┘  └──────────────┘  └──────────────┘       │
 └─────────────────────────────────────────────────────────────┘
-                            ▲
                             │
-                    ┌───────┴────────┐
-                    │ ESP-IDF / RTOS │
-                    │ SPI, DMA, GPIO │
-                    └────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│               BACKEND SPECIFIC (TARGETS / BSP)              │
+│                (Code bị khóa chặt vào Chipset)              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ TARGET: ESP32│  │ TARGET: STM32│  │  TARGET: PC  │       │
+│  │ (ESP-IDF API)│  │ (STM32 HAL)  │  │ (SDL2/OpenGL)│       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+            ┌─────────────────────────────┐
+            │      PHYSICAL HARDWARE      │
+            └─────────────────────────────┘
 ```
 ## [📁 Cấu Trúc Project](#-cấu-trúc-project)
 ```text
-esp32_3dcube_platform/
+embedded_3d_platform/
 │
-├── docs/                           # Tài liệu dự án (Document-Driven)
-│   ├── hardware/                   # Sơ đồ pinout, timing diagram SPI
-│   ├── software/                   # Flowchart thuật toán, state machine
-│   └── doxygen_config/             # Cấu hình sinh API docs tự động
-│
-├── hal/                            # Hardware Abstraction Layer (Phần cứng)
-│   ├── include/hal/                # HAL Interfaces (Header files)
-│   │   ├── display_hal.h           # Interface chuẩn cho mọi màn hình
-│   │   ├── touch_hal.h             # Interface chuẩn cho mọi chip cảm ứng
-│   │   └── spi_bus.h               # Interface quản lý bus SPI & DMA
-│   ├── src/
-│   │   ├── ili9341/                # Driver cụ thể cho ILI9341
-│   │   │   ├── ili9341_init.c      # Khởi tạo thanh ghi (Landscape/Portrait)
-│   │   │   └── ili9341_render.c    # Giao tiếp DMA đẩy Framebuffer
-│   │   ├── xpt2046/                # Driver cụ thể cho cảm ứng Touch
-│   │   │   └── xpt2046.c           # Đọc tọa độ, lọc nhiễu (Debounce)
-│   │   └── board_config.c          # Mapping chân GPIO thực tế của ESP32
-│   └── CMakeLists.txt
-│
-├── core_engine/                    # Logic cốt lõi (Không dính dáng phần cứng)
+├── core_engine/                    # 1. MIDDLEWARE: Bộ não logic 3D (Độc lập phần cứng)
 │   ├── include/engine/
-│   │   ├── math_3d.h               # Khai báo cấu trúc Vector, Matrix
-│   │   └── render_pipeline.h       # Logic Rasterization (Vẽ đoạn thẳng)
+│   │   ├── math_3d.h               # Định nghĩa Vector3D, Matrix4x4
+│   │   └── render_pipeline.h       # Giao diện đồ họa (Rasterization)
 │   ├── src/
 │   │   ├── math/
-│   │   │   ├── matrix.c            # Các hàm nhân ma trận xoay
-│   │   │   └── projection.c        # Ép tọa độ 3D (Z) xuống mặt phẳng 2D
+│   │   │   ├── matrix.c            # Nhân ma trận, phép chiếu (Projection)
+│   │   │   └── vector.c            # Tính toán vector (Dot, Cross product)
 │   │   └── graphics/
-│   │       ├── wireframe.c         # Thuật toán vẽ khung dây
-│   │       └── framebuffer.c       # Quản lý bộ đệm màu (Internal RAM)
-│   └── CMakeLists.txt
+│   │       ├── wireframe.c         # Thuật toán vẽ đường thẳng (Bresenham)
+│   │       └── framebuffer.c       # Quản lý mảng pixel trên RAM
+│   └── CMakeLists.txt              # Build target: libcore.a
 │
-├── main/                           # Application Layer (Luồng chạy chính)
+├── drivers/                        # 2. TẦNG PHẦN CỨNG (Unified Hardware Layer)
+│   ├── include/                    # FRONTEND APIs: Ranh giới phần cứng (Giao diện ảo)
+│   │   ├── hal_spi.h               # Struct V-Table cho SPI (transmit_cmd, transmit_data)
+│   │   ├── display_api.h           # API điều khiển màn hình dùng chung
+│   │   └── touch_api.h             # API lấy tọa độ chạm
+│   │
+│   ├── devices/                    # THIẾT BỊ NGOẠI VI: Code độc lập Chipset
+│   │   ├── ili9341.c               # Điều khiển ILI9341 (chỉ gọi API từ hal_spi.h)
+│   │   └── xpt2046.c               # Điều khiển cảm ứng XPT2046
+│   │
+│   ├── targets/                    # BACKEND SPECIFIC: Code dính chặt vào vi điều khiển
+│   │   ├── esp32/                  
+│   │   │   ├── spi_esp32.c         # Code cấu hình thanh ghi SPI dùng ESP-IDF
+│   │   │   └── board_config.h      # Khai báo các chân PIN (MISO, MOSI, CS...)
+│   │   └── stm32/                  
+│   │       ├── spi_stm32.c         # Code cấu hình SPI dùng STM32 HAL/LL
+│   │       └── board_config.h      
+│   │
+│   └── CMakeLists.txt              # Tự động chọn file trong targets/ để build libdrivers.a
+│
+├── common/                         # 3. TIỆN ÍCH DÙNG CHUNG (Cross-cutting)
+│   ├── include/common/
+│   │   ├── logger.h                # Hệ thống Macro LOG_INFO, LOG_ERROR
+│   │   ├── math_utils.h            # Hàm phụ trợ: map(), constrain(), bitwise
+│   │   └── system_errors.h         # Mã lỗi chuẩn hóa (Error codes)
 │   ├── src/
-│   │   ├── tasks/                  # Các FreeRTOS Tasks độc lập
-│   │   │   ├── task_touch.c        # Task lấy mẫu cảm ứng liên tục
-│   │   │   ├── task_math_3d.c      # Task xử lý toán học dựa trên tọa độ
-│   │   │   └── task_display.c      # Task đẩy dữ liệu ra màn hình
-│   │   └── main.c                  # Khởi tạo hệ thống, tạo Tasks
-│   └── CMakeLists.txt
+│   │   └── logger.c                # Xử lý logic in Log ra Serial
+│   └── CMakeLists.txt              # Build target: libcommon.a
 │
-├── tests/                          # Nhánh phải của V-Model (Kiểm thử)
-│   ├── unit_tests/                 # Chạy trực tiếp trên PC (Host)
-│   │   ├── test_math_3d.c          # Đút số giả lập, kiểm tra ma trận xoay
-│   │   └── test_projection.c       # Test thuật toán chiếu 2D
-│   ├── target_tests/               # Chạy trên chip ESP32
-│   │   ├── test_spi_dma.c          # Đo tốc độ đẩy data ra ILI9341
-│   │   └── test_memory_leak.c      # Monitor RAM khi xoay 3D liên tục
-│   └── CMakeLists.txt
+├── tests/                          # 4. CHƯƠNG TRÌNH THỰC THI & KIỂM THỬ (Nơi chứa main.c)
+│   ├── host_tests/                 # Chạy trực tiếp trên PC (không cần MCU)
+│   │   ├── test_math_3d.c          # Unit test kiểm tra độ chính xác ma trận xoay
+│   │   └── CMakeLists.txt
+│   │
+│   └── target_tests/               # Chạy trên vi điều khiển (MCU)
+│       ├── test_3d_cube/           # App 1: Render khối 3D (Đây chính là firmware chính)
+│       │   ├── src/
+│       │   │   ├── task_display.c  # FreeRTOS Task đẩy Framebuffer ra LCD
+│       │   │   └── task_math_3d.c  # FreeRTOS Task tính toán góc xoay
+│       │   ├── main.c              # Điểm Entry: Nơi "Tiêm" phụ thuộc (Inject SPI vào LCD)
+│       │   └── CMakeLists.txt      # Build ra file nạp (.bin / .elf)
+│       │
+│       └── test_touch_calib/       # App 2: Hiệu chỉnh cảm ứng (Calibration)
+│           ├── main.c              # Chương trình độc lập để lấy điểm min/max cảm ứng
+│           └── CMakeLists.txt
 │
-├── tools/                          # Công cụ hỗ trợ
-│   ├── pc_simulator/               # Dùng SDL2/OpenGL test code C trên PC
-│   └── monitor_fps.py              # Script Python đọc Serial vẽ biểu đồ FPS
+├── tools/                          # 5. CÔNG CỤ HỖ TRỢ PHÁT TRIỂN
+│   ├── pc_simulator/               # Dùng SDL2 để xem trước giao diện trên máy tính
+│   └── monitor_fps.py              # Script vẽ biểu đồ FPS realtime từ Serial
+│
+├── docs/                           # 6. TÀI LIỆU DỰ ÁN
+│   ├── hardware/                   # Datasheet, Pinout map
+│   └── doxygen_config/             # Sinh tài liệu API tự động
 │
 ├── .gitignore
-├── sdkconfig.defaults              # Cấu hình ESP-IDF (VD: Tăng clock SPI)
-└── README.md
+├── sdkconfig.defaults              # Cấu hình tần số CPU, kích thước bộ nhớ cho ESP-IDF
+└── CMakeLists.txt                  # Root CMake: Gọi các thư mục con và thiết lập Flags
 ```
 ## [⚙️ Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
 ### Phần Cứng
